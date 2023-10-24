@@ -100,6 +100,7 @@ const polylineMachine = createMachine(
                     strokeWidth: 2,
                 });
                 temporaire.add(polyline);
+                execute();
             },
             setLastPoint: (context, event) => {
                 const pos = stage.getPointerPosition();
@@ -120,6 +121,7 @@ const polylineMachine = createMachine(
                 polyline.stroke("black"); // On change la couleur
                 // On sauvegarde la polyline dans la couche de dessin
                 dessin.add(polyline); // On l'ajoute à la couche de dessin
+                execute();
             },
             addPoint: (context, event) => {
                 const pos = stage.getPointerPosition();
@@ -127,6 +129,7 @@ const polylineMachine = createMachine(
                 const newPoints = [...currentPoints, pos.x, pos.y]; // Add the new point to the array
                 polyline.points(newPoints); // Set the updated points to the line
                 temporaire.batchDraw(); // Redraw the layer to reflect the changes
+                execute();
             },
             abandon: (context, event) => {
                 polyline.remove();
@@ -138,6 +141,7 @@ const polylineMachine = createMachine(
                 const oldPoints = currentPoints.slice(0, size - 4); // On enlève le dernier point enregistré
                 polyline.points(oldPoints.concat(provisoire)); // Set the updated points to the line
                 temporaire.batchDraw(); // Redraw the layer to reflect the changes
+                execute();
             },
         },
         guards: {
@@ -171,3 +175,61 @@ window.addEventListener("keydown", (event) => {
     console.log("Key pressed:", event.key);
     polylineService.send(event.key);
 });
+
+//Début du TP Undo - Redo
+
+const stateStack = new Stack();
+const redoStateStack = new Stack();
+
+function execute() {
+    const currentPoints = polyline.points();
+    stateStack.push([...currentPoints]);
+    redoStateStack.clear();
+}
+
+function canUndo() {
+    return stateStack.size() > 0;
+}
+
+function canRedo() {
+    return redoStateStack.size() > 0;
+}
+
+function Undo() {
+    if (canUndo()) {
+        const previousState = stateStack.pop();
+        redoStateStack.push([...polyline.points()]);
+        polyline.points(previousState);
+        temporaire.batchDraw();
+    }
+}
+
+
+function Redo() {
+    if (canRedo()) {
+        const nextState = redoStateStack.pop();
+        stateStack.push([...polyline.points()]);
+        polyline.points(nextState);
+        temporaire.batchDraw();
+    }
+}
+
+
+const undoButton = document.getElementById("undo");
+const redoButton = document.getElementById("redo");
+
+undoButton.addEventListener("click", () => {
+    Undo();
+    updateButtonStates();
+});
+
+redoButton.addEventListener("click", () => {
+    Redo();
+    updateButtonStates();
+});
+
+function updateButtonStates() {
+    undoButton.disabled = !canUndo();
+    redoButton.disabled = !canRedo();
+}
+
